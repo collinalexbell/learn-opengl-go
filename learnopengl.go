@@ -1,4 +1,4 @@
-package main // import "github.com/go-gl/example/gl41core-cube"
+package main
 
 import (
 	"runtime"
@@ -52,17 +52,30 @@ func main() {
 		0.0, 0.5, 0.0,
 	}
 
+	vertices2 := []float32{
+		-0.3, -0.3, 0.0,
+		0.3, -0.3, 0.0,
+		0.0, 0.3, 0.0,
+	}
+
 	var VAO uint32
 	gl.GenVertexArrays(1, &VAO)
 	gl.BindVertexArray(VAO)
+
+	var VBO2 uint32
+	gl.GenBuffers(1, &VBO2)
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO2)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices2) * 4, gl.Ptr(vertices2), gl.STATIC_DRAW)
 
 	var VBO uint32
 	gl.GenBuffers(1, &VBO)
 	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	gl.BufferData(gl.ARRAY_BUFFER, len(vertices) * 4, gl.Ptr(vertices), gl.STATIC_DRAW)
 
+
+	// location = 1 selects the 2nd attribute pointer (index 1) in the VAO
 	shaderSource := gl.Str("#version 330 core\n" +
-	"layout (location = 0) in vec3 aPos;\n" +
+	"layout (location = 1) in vec3 aPos;\n" +
 	"void main()\n" +
 	"{\n" +
 	" gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n" +
@@ -98,8 +111,19 @@ func main() {
 	gl.DeleteShader(vertexShader)
 	gl.DeleteShader(fragShader)
 
+	// Vertex attribute configration, stored in the VAO
+	// The first attribute pointer (reference location = {0, 1} in shader)
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
 	gl.VertexAttribPointer(0,3, gl.FLOAT, false, 12, gl.PtrOffset(0))
+
+	// The second attribute pointer (reference location = {0, 1} in shader)
+	gl.BindBuffer(gl.ARRAY_BUFFER, VBO2)
+	gl.VertexAttribPointer(1,3, gl.FLOAT, false, 12, gl.PtrOffset(0))
+
+	// Enable the configurations, stored in the VAO
+	// required to use the attribpointers in the shader progs
 	gl.EnableVertexAttribArray(0)
+	gl.EnableVertexAttribArray(1)
 
 	for !window.ShouldClose() {
 		// Do OpenGL stuff.
