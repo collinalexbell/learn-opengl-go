@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
@@ -21,12 +22,12 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func main() {
+func initWindow() *glfw.Window {
+	fmt.Println("init Window")
 	err := glfw.Init()
 	if err != nil {
 		panic(err)
 	}
-	defer glfw.Terminate()
 
 	err = gl.Init()
 
@@ -46,33 +47,23 @@ func main() {
 		gl.Viewport(0, 0, int32(width), int32(height))
 	})
 
-	vertices := []float32{
-		-0.5, -0.5, 0.0,
-		0.5, -0.5, 0.0,
-		0.0, 0.5, 0.0,
+	return window
+}
+
+func bindVerts(vertices [][]float32) []uint32 {
+	vbo := make([]uint32, len(vertices))
+	for i, vert := range(vertices) {
+		gl.GenBuffers(1, &vbo[i])
+		gl.BindBuffer(gl.ARRAY_BUFFER, vbo[i])
+		gl.BufferData(gl.ARRAY_BUFFER,
+			len(vert) * 4,
+			gl.Ptr(vert),
+			gl.STATIC_DRAW)
 	}
+	return vbo
+}
 
-	vertices2 := []float32{
-		-0.3, -0.3, 0.0,
-		0.3, -0.3, 0.0,
-		0.0, 0.3, 0.0,
-	}
-
-	var VAO uint32
-	gl.GenVertexArrays(1, &VAO)
-	gl.BindVertexArray(VAO)
-
-	var VBO2 uint32
-	gl.GenBuffers(1, &VBO2)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO2)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices2) * 4, gl.Ptr(vertices2), gl.STATIC_DRAW)
-
-	var VBO uint32
-	gl.GenBuffers(1, &VBO)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices) * 4, gl.Ptr(vertices), gl.STATIC_DRAW)
-
-
+func triangleShaderProg() uint32 {
 	// location = 1 selects the 2nd attribute pointer (index 1) in the VAO
 	shaderSource := gl.Str("#version 330 core\n" +
 	"layout (location = 1) in vec3 aPos;\n" +
@@ -111,19 +102,50 @@ func main() {
 	gl.DeleteShader(vertexShader)
 	gl.DeleteShader(fragShader)
 
+	return shaderProg
+
+}
+
+func bind_VBO_to_VAO(vbo []uint32) {
 	// Vertex attribute configration, stored in the VAO
 	// The first attribute pointer (reference location = {0, 1} in shader)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[0])
 	gl.VertexAttribPointer(0,3, gl.FLOAT, false, 12, gl.PtrOffset(0))
 
 	// The second attribute pointer (reference location = {0, 1} in shader)
-	gl.BindBuffer(gl.ARRAY_BUFFER, VBO2)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[1])
 	gl.VertexAttribPointer(1,3, gl.FLOAT, false, 12, gl.PtrOffset(0))
 
 	// Enable the configurations, stored in the VAO
 	// required to use the attribpointers in the shader progs
 	gl.EnableVertexAttribArray(0)
 	gl.EnableVertexAttribArray(1)
+}
+
+func main() {
+	window := initWindow()
+
+	defer glfw.Terminate()
+
+	vertices := [][]float32{
+		{-0.5, -0.5, 0.0,
+		0.5, -0.5, 0.0,
+		0.0, 0.5, 0.0,},
+
+		{-0.3, -0.3, 0.0,
+		0.3, -0.3, 0.0,
+		0.0, 0.3, 0.0,},
+	}
+
+	var VAO uint32
+	gl.GenVertexArrays(1, &VAO)
+	gl.BindVertexArray(VAO)
+
+	vbo := bindVerts(vertices)
+
+	shaderProg := triangleShaderProg()
+
+	bind_VBO_to_VAO(vbo)
 
 	for !window.ShouldClose() {
 		// Do OpenGL stuff.
