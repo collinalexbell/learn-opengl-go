@@ -18,11 +18,12 @@ func processInput(window *glfw.Window) {
 	}
 }
 
+// This is the go runtime init that runs before main
 func init() {
 	runtime.LockOSThread()
 }
 
-func initWindow() *glfw.Window {
+func newWindow() *glfw.Window {
 	fmt.Println("init Window")
 	err := glfw.Init()
 	if err != nil {
@@ -50,23 +51,21 @@ func initWindow() *glfw.Window {
 	return window
 }
 
-func bindVerts(vertices [][]float32) []uint32 {
-	vbo := make([]uint32, len(vertices))
-	for i, vert := range(vertices) {
-		gl.GenBuffers(1, &vbo[i])
-		gl.BindBuffer(gl.ARRAY_BUFFER, vbo[i])
-		gl.BufferData(gl.ARRAY_BUFFER,
-			len(vert) * 4,
-			gl.Ptr(vert),
-			gl.STATIC_DRAW)
-	}
+func bindVerts(vertices []float32) uint32 {
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER,
+		len(vertices) * 4,
+		gl.Ptr(vertices),
+		gl.STATIC_DRAW)
 	return vbo
 }
 
 func triangleShaderProg() uint32 {
 	// location = 1 selects the 2nd attribute pointer (index 1) in the VAO
 	shaderSource := gl.Str("#version 330 core\n" +
-	"layout (location = 1) in vec3 aPos;\n" +
+	"layout (location = 0) in vec3 aPos;\n" +
 	"void main()\n" +
 	"{\n" +
 	" gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n" +
@@ -106,54 +105,66 @@ func triangleShaderProg() uint32 {
 
 }
 
-func bind_VBO_to_VAO(vbo []uint32) {
+func configureVAO(EBO uint32) {
 	// Vertex attribute configration, stored in the VAO
 	// The first attribute pointer (reference location = {0, 1} in shader)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[0])
-	gl.VertexAttribPointer(0,3, gl.FLOAT, false, 12, gl.PtrOffset(0))
-
-	// The second attribute pointer (reference location = {0, 1} in shader)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo[1])
-	gl.VertexAttribPointer(1,3, gl.FLOAT, false, 12, gl.PtrOffset(0))
-
-	// Enable the configurations, stored in the VAO
+	gl.VertexAttribPointer(0, 3, gl.FLOAT, false, 12, gl.PtrOffset(0))
+	// Enable the configuration, stored in the VAO
 	// required to use the attribpointers in the shader progs
 	gl.EnableVertexAttribArray(0)
-	gl.EnableVertexAttribArray(1)
+}
+
+func createEBO(indices []uint32) uint32 {
+	var EBO uint32
+	gl.GenBuffers(1, &EBO)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER,
+		len(indices) * 4,
+		gl.Ptr(indices),
+		gl.STATIC_DRAW)
+
+	return EBO
 }
 
 func main() {
-	window := initWindow()
+	window := newWindow()
 
 	defer glfw.Terminate()
 
-	vertices := [][]float32{
-		{-0.5, -0.5, 0.0,
-		0.5, -0.5, 0.0,
-		0.0, 0.5, 0.0,},
-
-		{-0.3, -0.3, 0.0,
-		0.3, -0.3, 0.0,
-		0.0, 0.3, 0.0,},
+	vertices := []float32{
+		0.5, 0.5, 0.0,  // top right
+		0.5, -0.5, 0.0, // bottom right
+		-0.5, -0.5, 0.0, // bottom left
+		-0.5, 0.5, 0.0, // top left
 	}
+
+	indices := []uint32 {
+		0, 1, 3, // first triangle
+		1, 2, 3, // second triangle
+	}
+
 
 	var VAO uint32
 	gl.GenVertexArrays(1, &VAO)
 	gl.BindVertexArray(VAO)
 
-	vbo := bindVerts(vertices)
+	bindVerts(vertices)
+
+	EBO := createEBO(indices)
 
 	shaderProg := triangleShaderProg()
 
-	bind_VBO_to_VAO(vbo)
+	configureVAO(EBO)
 
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
 	for !window.ShouldClose() {
 		// Do OpenGL stuff.
 		processInput(window)
 		clearToCyberpunkColor()
 		gl.UseProgram(shaderProg)
 		gl.BindVertexArray(VAO)
-		gl.DrawArrays(gl.TRIANGLES, 0, 3)
+		gl.DrawElements(gl.TRIANGLES, 6, gl.UNSIGNED_INT, gl.PtrOffset(0))
+		gl.BindVertexArray(0)
 		window.SwapBuffers()
 		glfw.PollEvents()
 	}
